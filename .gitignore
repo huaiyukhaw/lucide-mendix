@@ -1,0 +1,7 @@
+# Ignore everything
+*
+
+# Keep only the script and package files
+!.gitignore
+!download-lucide-mendix.js
+!package.json
