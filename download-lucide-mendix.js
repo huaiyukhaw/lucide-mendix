@@ -1,43 +1,86 @@
 #!/usr/bin/env node
 const { execSync } = require('child_process');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const AdmZip = require('adm-zip');
 
 const REPO = 'https://github.com/lucide-icons/lucide.git';
-const tempDir = path.join(process.cwd(), '.lucide-mendix-tmp');
+const API_URL = 'https://api.github.com/repos/lucide-icons/lucide/releases/latest';
+const tempDir = path.join(process.cwd(), '.lucide-mendix-tmp-' + Date.now());
 
-try {
-  console.log('Cloning lucide (sparse, depth=1)...');
-  execSync(`git clone --sparse --depth=1 ${REPO} "${tempDir}"`, { stdio: 'inherit' });
-  execSync(`git -C "${tempDir}" sparse-checkout set lucide-font icons`, { stdio: 'inherit' });
-
-  console.log('\nGenerating lucide-mendix-import.txt...');
-  const info = JSON.parse(fs.readFileSync(path.join(tempDir, 'lucide-font', 'info.json'), 'utf8'));
-  const iconsDir = path.join(tempDir, 'icons');
-  const lines = [];
-
-  for (const file of fs.readdirSync(iconsDir).filter(f => f.endsWith('.json'))) {
-    const name = path.basename(file, '.json');
-    const entry = info[name];
-    if (!entry) continue;
-    const hexCode = entry.encodedCode.replace('\\', '');
-    const meta = JSON.parse(fs.readFileSync(path.join(iconsDir, file), 'utf8'));
-    const tags = (meta.tags || []).join(' ');
-    lines.push(`${hexCode};${name};${tags}`);
-  }
-
-  lines.sort((a, b) => a.split(';')[1].localeCompare(b.split(';')[1]));
-  fs.writeFileSync('lucide-mendix-import.txt', lines.join('\n'), 'utf8');
-  console.log(`Written ${lines.length} icons to lucide-mendix-import.txt`);
-
-  console.log('Copying lucide.ttf...');
-  fs.copyFileSync(path.join(tempDir, 'lucide-font', 'lucide.ttf'), 'lucide.ttf');
-  console.log('Copied lucide.ttf');
-} finally {
-  fs.rmSync(tempDir, { recursive: true, force: true });
-  console.log('Cleaned up temp files.');
+function httpsGet(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, { headers: { 'User-Agent': 'lucide-mendix' } }, (res) => {
+      if (res.statusCode === 301 || res.statusCode === 302) {
+        resolve(httpsGet(res.headers.location));
+        return;
+      }
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+      res.on('error', reject);
+    }).on('error', reject);
+  });
 }
 
-console.log('\nDone! Files ready in current directory:');
-console.log('  lucide.ttf');
-console.log('  lucide-mendix-import.txt');
+async function main() {
+  fs.mkdirSync(tempDir, { recursive: true });
+  try {
+    // Fetch latest release metadata
+    console.log('Fetching latest lucide release...');
+    const release = JSON.parse((await httpsGet(API_URL)).toString('utf8'));
+    const version = release.tag_name;
+    const fontAsset = release.assets.find(a => a.name === `lucide-font-${version}.zip`);
+    if (!fontAsset) throw new Error(`Font zip not found in release ${version} assets`);
+    console.log(`Version: ${version}`);
+
+    // Download and parse font zip (contains info.json + lucide.ttf)
+    console.log('Downloading lucide-font zip...');
+    const zipBuf = await httpsGet(fontAsset.browser_download_url);
+    const zip = new AdmZip(zipBuf);
+    const info = JSON.parse(zip.readAsText('lucide-font/info.json'));
+    const ttfBuf = zip.readFile('lucide-font/lucide.ttf');
+    if (!ttfBuf) throw new Error('lucide.ttf not found in font zip');
+
+    // Sparse-clone just the icons directory for tags
+    console.log('Cloning lucide icons (sparse, depth=1)...');
+    const repoDir = path.join(tempDir, 'repo');
+    execSync(`git clone --sparse --depth=1 ${REPO} "${repoDir}"`, { stdio: 'inherit' });
+    execSync(`git -C "${repoDir}" sparse-checkout set icons`, { stdio: 'inherit' });
+
+    // Generate import file
+    console.log('\nGenerating lucide-mendix-import.txt...');
+    const iconsDir = path.join(repoDir, 'icons');
+    const lines = [];
+    for (const file of fs.readdirSync(iconsDir).filter(f => f.endsWith('.json'))) {
+      const name = path.basename(file, '.json');
+      const entry = info[name];
+      if (!entry) continue;
+      const hexCode = entry.encodedCode.replace('\\', '');
+      const meta = JSON.parse(fs.readFileSync(path.join(iconsDir, file), 'utf8'));
+      const tags = (meta.tags || []).join(' ');
+      lines.push(`${hexCode};${name};${tags}`);
+    }
+    lines.sort((a, b) => a.split(';')[1].localeCompare(b.split(';')[1]));
+    fs.writeFileSync('lucide-mendix-import.txt', lines.join('\n'), 'utf8');
+    console.log(`Written ${lines.length} icons to lucide-mendix-import.txt`);
+
+    // Write TTF
+    console.log('Writing lucide.ttf...');
+    fs.writeFileSync('lucide.ttf', ttfBuf);
+    console.log('Written lucide.ttf');
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+    console.log('Cleaned up temp files.');
+  }
+
+  console.log('\nDone! Files ready in current directory:');
+  console.log('  lucide.ttf');
+  console.log('  lucide-mendix-import.txt');
+}
+
+main().catch(err => {
+  console.error('\nError:', err.message);
+  process.exit(1);
+});
