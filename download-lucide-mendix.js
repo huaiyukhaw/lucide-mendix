@@ -2,10 +2,9 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 
 const REPO = 'https://github.com/lucide-icons/lucide.git';
-const tempDir = path.join(os.tmpdir(), 'lucide-mendix-' + Date.now());
+const tempDir = path.join(process.cwd(), '.lucide-mendix-tmp');
 
 try {
   console.log('Cloning lucide (sparse, depth=1)...');

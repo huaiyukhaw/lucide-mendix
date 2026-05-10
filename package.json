@@ -1,6 +1,6 @@
 {
   "name": "lucide-mendix",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Downloads lucide.ttf and generates a Mendix icon import file",
   "bin": {
     "lucide-mendix": "download-lucide-mendix.js"
