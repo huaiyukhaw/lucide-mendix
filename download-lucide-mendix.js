@@ -26,11 +26,12 @@ function httpsGet(url) {
 
 async function main() {
   fs.mkdirSync(tempDir, { recursive: true });
+  let version;
   try {
     // Fetch latest release metadata
     console.log('Fetching latest lucide release...');
     const release = JSON.parse((await httpsGet(API_URL)).toString('utf8'));
-    const version = release.tag_name;
+    version = release.tag_name;
     const fontAsset = release.assets.find(a => a.name === `lucide-font-${version}.zip`);
     if (!fontAsset) throw new Error(`Font zip not found in release ${version} assets`);
     console.log(`Version: ${version}`);
@@ -50,7 +51,7 @@ async function main() {
     execSync(`git -C "${repoDir}" sparse-checkout set icons`, { stdio: 'inherit' });
 
     // Create version output directory
-    const outDir = path.join(process.cwd(), version);
+    const outDir = path.join(process.cwd(), `lucide-${version}`);
     fs.mkdirSync(outDir, { recursive: true });
 
     // Generate import file
@@ -81,9 +82,9 @@ async function main() {
     console.log('Cleaned up temp files.');
   }
 
-  console.log(`\nDone! Files ready in ./${version}/`);
-  console.log(`  ${version}/lucide.ttf`);
-  console.log(`  ${version}/lucide-mendix-import.txt`);
+  console.log(`\nDone! Files ready in ./lucide-${version}/`);
+  console.log(`  lucide-${version}/lucide.ttf`);
+  console.log(`  lucide-${version}/lucide-mendix-import.txt`);
 }
 
 main().catch(err => {
