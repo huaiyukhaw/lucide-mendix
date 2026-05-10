@@ -49,6 +49,10 @@ async function main() {
     execSync(`git clone --sparse --depth=1 ${REPO} "${repoDir}"`, { stdio: 'inherit' });
     execSync(`git -C "${repoDir}" sparse-checkout set icons`, { stdio: 'inherit' });
 
+    // Create version output directory
+    const outDir = path.join(process.cwd(), version);
+    fs.mkdirSync(outDir, { recursive: true });
+
     // Generate import file
     console.log('\nGenerating lucide-mendix-import.txt...');
     const iconsDir = path.join(repoDir, 'icons');
@@ -63,21 +67,23 @@ async function main() {
       lines.push(`${hexCode};${name};${tags}`);
     }
     lines.sort((a, b) => a.split(';')[1].localeCompare(b.split(';')[1]));
-    fs.writeFileSync('lucide-mendix-import.txt', lines.join('\n'), 'utf8');
-    console.log(`Written ${lines.length} icons to lucide-mendix-import.txt`);
+    const importFile = path.join(outDir, 'lucide-mendix-import.txt');
+    fs.writeFileSync(importFile, lines.join('\n'), 'utf8');
+    console.log(`Written ${lines.length} icons to ${importFile}`);
 
     // Write TTF
     console.log('Writing lucide.ttf...');
-    fs.writeFileSync('lucide.ttf', ttfBuf);
-    console.log('Written lucide.ttf');
+    const ttfFile = path.join(outDir, 'lucide.ttf');
+    fs.writeFileSync(ttfFile, ttfBuf);
+    console.log(`Written ${ttfFile}`);
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
     console.log('Cleaned up temp files.');
   }
 
-  console.log('\nDone! Files ready in current directory:');
-  console.log('  lucide.ttf');
-  console.log('  lucide-mendix-import.txt');
+  console.log(`\nDone! Files ready in ./${version}/`);
+  console.log(`  ${version}/lucide.ttf`);
+  console.log(`  ${version}/lucide-mendix-import.txt`);
 }
 
 main().catch(err => {
