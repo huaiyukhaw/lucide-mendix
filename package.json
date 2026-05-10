@@ -3,8 +3,13 @@
   "version": "1.0.0",
   "description": "Downloads lucide.ttf and generates a Mendix icon import file",
   "bin": {
-    "lucide-mendix-download": "./download-lucide-mendix.js"
+    "lucide-mendix-download": "download-lucide-mendix.js"
   },
-  "keywords": ["lucide", "mendix", "icons", "font"],
+  "keywords": [
+    "lucide",
+    "mendix",
+    "icons",
+    "font"
+  ],
   "license": "MIT"
 }
