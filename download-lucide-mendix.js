@@ -87,7 +87,7 @@ async function main() {
   console.log(`  lucide-${version}/lucide-mendix-import.txt`);
 }
 
-main().catch(err => {
+main().then(() => process.exit(0)).catch(err => {
   console.error('\nError:', err.message);
   process.exit(1);
 });
